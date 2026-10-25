@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cabine primária de média tensão: anatomia interativa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0b121c; --bg-deep:#070c13; --panel:#0f1824; --panel-2:#142030; --line:#1f2d3f; --line-2:#2b3d54;
+  --text:#e3eaf2; --muted:#9db0c4; --dim:#7d8fa8;
+  --energy:#49e0ff; --lv:#a9f55e; --oil:#ffb22e; --hot:#ff4a2a; --cool:#59c7ff;
+  --copper:#c97b44; --safety:#ffcc1a; --closed:#ff5466; --open:#36d27f;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --cond:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --spring:cubic-bezier(.34,1.56,.64,1);
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
+body{margin:0;height:100%;display:flex;flex-direction:column;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--energy);outline-offset:3px;border-radius:5px;box-shadow:0 0 0 6px rgba(73,224,255,.15)}
+
+/* ---------- header ---------- */
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:16px 28px;flex-wrap:wrap;padding:16px 22px 14px;border-bottom:1px solid var(--line);background:var(--bg-deep)}
+.top h1{margin:0;font-family:var(--cond);font-weight:600;font-size:clamp(22px,2.6vw,30px);line-height:1.05;letter-spacing:-.01em}
+.top h1 small{display:block;font-family:var(--sans);font-weight:400;font-size:13.5px;color:var(--muted);letter-spacing:0;margin-top:5px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{width:22px;height:3px;border-radius:2px;background:var(--c);box-shadow:0 0 8px var(--c)}
+.legend i.grad{background:linear-gradient(90deg,var(--cool),var(--oil),var(--hot));box-shadow:none}
+
+/* ---------- layout ---------- */
+.app{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 372px}
+.stage{position:relative;min-width:0;min-height:0;overflow:hidden;background:radial-gradient(1100px 680px at 42% 40%,#14243a 0%,#0c1522 52%,#070c13 100%)}
+.stage::before{content:"";position:absolute;inset:0;pointer-events:none;background-image:linear-gradient(rgba(120,160,210,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(120,160,210,.045) 1px,transparent 1px);background-size:32px 32px;mask-image:radial-gradient(closest-side at 50% 50%,#000 40%,transparent 100%)}
+#scene{position:absolute;inset:0;width:100%;height:100%;display:block;user-select:none;-webkit-user-select:none}
+#scene.zoomed{cursor:grab}
+#scene.dragging{cursor:grabbing}
+
+.tools{position:absolute;left:14px;top:12px;right:14px;display:flex;flex-wrap:wrap;gap:6px;z-index:2;pointer-events:none}
+.chip{pointer-events:auto;display:inline-flex;align-items:center;gap:7px;padding:9px 13px 9px 10px;min-height:40px;border-radius:999px;border:1px solid var(--line-2);background:rgba(12,20,31,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font-size:12.5px;color:var(--muted);cursor:pointer;transition:border-color .2s var(--ease-out),color .2s,background .2s,transform .12s var(--spring)}
+.chip::before{content:"";width:8px;height:8px;border-radius:50%;border:1.5px solid currentColor;transition:background .2s,box-shadow .25s var(--spring),transform .2s var(--spring)}
+.chip[aria-pressed="true"]{color:var(--text);border-color:#3a5577}
+.chip[aria-pressed="true"]::before{background:var(--accent,var(--energy));border-color:var(--accent,var(--energy));box-shadow:0 0 8px var(--accent,var(--energy));transform:scale(1.3)}
+.chip.oilchip{--accent:var(--oil)}
+.chip:hover{color:var(--text)}
+.chip:active{transform:scale(.94)}
+
+.zoom{position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;border:1px solid var(--line-2);border-radius:10px;overflow:hidden;background:rgba(12,20,31,.85);z-index:2}
+.zoom button{width:44px;height:44px;border:0;background:transparent;cursor:pointer;font-size:18px;color:var(--muted);transition:color .15s,background .15s,transform .12s var(--spring)}
+.zoom button+button{border-top:1px solid var(--line-2)}
+.zoom button:hover{color:var(--text);background:rgba(73,224,255,.08)}
+.zoom button:active{transform:scale(.88);background:rgba(73,224,255,.14);color:var(--text)}
+.hint{position:absolute;left:16px;bottom:14px;right:70px;font-size:12px;color:var(--dim);pointer-events:none;z-index:2}
+
+#tip{position:absolute;z-index:5;pointer-events:none;padding:5px 9px;border-radius:6px;background:#e9f1f8;color:#0b121c;font-size:12px;font-weight:600;white-space:nowrap;opacity:0;transform:translate(-50%,-130%);transition:opacity .12s}
+#tip.on{opacity:1}
+
+/* ---------- side panel ---------- */
+.side{min-height:0;overflow:auto;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;transition:border-left-color .4s}
+.side.in-alarm{border-left-color:var(--closed)!important;animation:alarm-border 1.4s ease-in-out infinite}
+@keyframes alarm-border{0%,100%{border-left-color:var(--closed)}50%{border-left-color:rgba(255,84,102,.35)}}
+.blk{padding:16px 18px;border-bottom:1px solid var(--line)}
+.blk h2{margin:0 0 12px;font-family:var(--cond);font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);padding-bottom:8px}
+
+/* status badge topo do painel */
+.sys-status{display:flex;align-items:center;gap:10px;padding:10px 18px 10px;border-bottom:1px solid var(--line);background:var(--bg-deep);font-size:12.5px;transition:background .4s}
+.sys-status.ok{background:rgba(54,210,127,.07)}
+.sys-status.alarm{background:rgba(255,84,102,.10);animation:alarm-bg 1.2s ease-in-out infinite}
+@keyframes alarm-bg{0%,100%{background:rgba(255,84,102,.10)}50%{background:rgba(255,84,102,.04)}}
+.sys-dot{width:9px;height:9px;border-radius:50%;background:var(--c);box-shadow:0 0 8px var(--c);flex-shrink:0;transition:background .3s,box-shadow .3s}
+.sys-label{font-family:var(--cond);font-weight:600;color:var(--text);flex:1}
+.sys-sub{font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:auto}
+.info .where{font-size:12.5px;color:var(--energy);margin-bottom:2px}
+.info h3{margin:0 0 8px;font-family:var(--cond);font-weight:600;font-size:23px;line-height:1.12}
+.info p{margin:0 0 12px;color:#c3cfdc;font-size:13.5px;max-width:62ch}
+.info dl{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;margin:0;font-size:12.5px}
+.info dt{color:var(--dim)}
+.info dd{margin:0;color:var(--text);text-align:right}
+.info dl.live{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line-2)}
+.info dl.live dd{font-family:var(--mono);font-size:12px;color:var(--oil)}
+.info dl:empty{display:none}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.acts:empty{display:none}
+.btn{padding:9px 14px;min-height:40px;border-radius:8px;border:1px solid var(--line-2);background:var(--panel-2);cursor:pointer;font-size:13px;font-weight:500;transition:background .15s var(--ease-out),border-color .15s,transform .12s var(--spring)}
+.btn:hover{border-color:#456587;background:#1a2a3e}
+.btn:active{transform:scale(.95)}
+.btn.warn{border-color:#6a4520;color:#ffcf8a;background:rgba(90,58,28,.25)}
+.btn.warn:hover{background:#2a1d10;border-color:#8a5a28}
+.btn.danger{border-color:#6b2535;color:#ff9aa6;background:rgba(91,36,48,.22)}
+.btn.danger:hover{background:#2b1218;border-color:#8a2a3c}
+
+.swrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0}
+.swrow+.swrow{border-top:1px solid var(--line)}
+.swrow b{display:block;font-weight:600;font-size:13.5px}
+.swrow small{display:block;color:var(--dim);font-size:12px;margin-top:2px}
+.tg{
+  display:inline-flex;align-items:center;gap:9px;
+  min-width:128px;min-height:44px;
+  justify-content:flex-start;padding:8px 13px;
+  border-radius:10px;border:1px solid var(--line-2);
+  background:var(--bg-deep);cursor:pointer;
+  font-size:12.5px;font-weight:600;
+  transition:border-color .18s var(--ease-out),background .18s,transform .12s var(--spring),box-shadow .18s;
+}
+.tg::before{
+  content:"";width:10px;height:10px;border-radius:50%;flex-shrink:0;
+  background:var(--c);box-shadow:0 0 10px var(--c);
+  transition:background .2s,box-shadow .3s var(--spring),transform .2s var(--spring);
+}
+.tg[aria-pressed="true"]{--c:var(--closed);color:#ffd4d9;border-color:rgba(255,84,102,.35);background:rgba(255,84,102,.06)}
+.tg[aria-pressed="true"]::before{transform:scale(1.2)}
+.tg[aria-pressed="false"]{--c:var(--open);color:#c9f5dc;border-color:rgba(54,210,127,.3);background:rgba(54,210,127,.05)}
+.tg.blown{--c:#8d5a3e;color:#e0b49a;border-color:rgba(141,90,62,.4);background:rgba(141,90,62,.08)}
+.tg:hover{border-color:#456587;box-shadow:0 0 0 3px rgba(73,224,255,.08)}
+.tg:active{transform:scale(.96)}
+
+.slider{display:block;margin:14px 0 4px}
+.slider .lab{display:flex;justify-content:space-between;font-size:13px;color:#c3cfdc;margin-bottom:6px}
+.slider output{font-family:var(--mono);color:var(--oil)}
+input[type=range]{width:100%;accent-color:var(--oil)}
+.scenarios{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+
+.meter+.meter{margin-top:18px}
+.mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.mh b{font-family:var(--cond);font-size:15px;font-weight:700;letter-spacing:-.01em}
+.state{font-size:12px;color:var(--dim);font-family:var(--mono);padding:2px 7px;border-radius:4px;border:1px solid var(--line);transition:background .3s,color .3s,border-color .3s}
+.state.on{color:var(--energy);border-color:rgba(73,224,255,.2);background:rgba(73,224,255,.06)}
+.state.alarm-st{color:var(--safety);border-color:rgba(255,204,26,.3);background:rgba(255,204,26,.08);animation:blink .7s steps(2) infinite}
+.state.trip-st{color:var(--closed);border-color:rgba(255,84,102,.3);background:rgba(255,84,102,.08)}
+.bar{position:relative;height:12px;border-radius:6px;background:#060c14;border:1px solid var(--line-2);overflow:hidden}
+.bar .fill{position:absolute;left:0;top:0;bottom:0;width:30%;border-radius:5px;background:linear-gradient(90deg,var(--cool),var(--oil) 55%,var(--hot));background-size:372px 100%;transition:width .35s var(--ease-out)}
+.bar .mk{position:absolute;top:-1px;bottom:-1px;width:2px;background:var(--safety);opacity:.85}
+.bar .mk.trip{background:var(--closed)}
+.mrow{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:10px}
+.mrow div{background:var(--bg-deep);border:1px solid var(--line);border-radius:8px;padding:8px 9px;transition:border-color .25s,background .25s}
+.mrow div.alarm-cell{border-color:rgba(255,204,26,.35);background:rgba(255,204,26,.05)}
+.mrow div.trip-cell{border-color:rgba(255,84,102,.35);background:rgba(255,84,102,.05)}
+.mrow span{display:block;font-size:11px;color:var(--dim);line-height:1.3;margin-bottom:2px}
+.mrow strong{font-family:var(--mono);font-weight:500;font-size:14px}
+.mrow strong.alarm{color:var(--safety)}
+.mrow strong.trip{color:var(--closed)}
+.feed{display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding:10px 13px;border-radius:9px;background:var(--bg-deep);border:1px solid var(--line);font-size:13px}
+.feed strong{font-family:var(--mono);font-weight:600;font-size:15px;color:var(--energy)}
+
+#log{list-style:none;margin:0;padding:0;font-size:12.5px}
+#log li{
+  display:grid;grid-template-columns:58px 1fr;gap:8px;
+  padding:9px 10px 9px 12px;border-top:1px solid var(--line);
+  color:#c3cfdc;border-left:3px solid transparent;
+  animation:logIn .24s var(--ease-out) both;
+}
+@keyframes logIn{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+#log li:first-child{border-top:0}
+#log time{font-family:var(--mono);font-size:11px;color:var(--dim);padding-top:2px;line-height:1.4}
+#log li.warn{color:#ffd88a;border-left-color:var(--safety);background:rgba(255,204,26,.04)}
+#log li.err{color:#ffaab6;border-left-color:var(--closed);background:rgba(255,84,102,.06)}
+#log li.ok{color:#a8ecc6;border-left-color:var(--open);background:rgba(54,210,127,.04)}
+
+/* ---------- SVG scene states ---------- */
+#scene .cmp{cursor:pointer;transition:filter .18s}
+#scene .cmp:hover{filter:brightness(1.32)}
+#scene .cmp.sel{filter:brightness(1.18) drop-shadow(0 0 2.2px rgba(73,224,255,.95))}
+#scene .part{pointer-events:none;transition:opacity .4s}
+#scene.nopart .part{opacity:0}
+#scene .frontl{opacity:0;pointer-events:none;transition:opacity .4s}
+#scene.mesh .frontl{opacity:1;pointer-events:auto}
+#scene.nolabels .tag{display:none}
+#scene .tag{transition:opacity .3s}
+
+.flow{fill:none;stroke:var(--energy);stroke-width:1.5;stroke-linecap:round;stroke-dasharray:1.6 6.4;opacity:0;transition:opacity .35s;animation:flow var(--fd,.8s) linear infinite;pointer-events:none}
+.flow.lv{stroke:var(--lv)}
+@keyframes flow{to{stroke-dashoffset:-8}}
+#scene.showflow.e-src .flow[data-c="src"],
+#scene.showflow.e-b .flow[data-c="b"],
+#scene.showflow.e-t0 .flow[data-c="t0"],
+#scene.showflow.e-t1 .flow[data-c="t1"]{opacity:1}
+
+.blade-o{fill:none;stroke:#161b21;stroke-width:4.6;stroke-linecap:round}
+.blade{fill:none;stroke:#e1e8ee;stroke-width:2.6;stroke-linecap:round}
+
+#scene .shell,#scene .radf{transition:fill-opacity .5s,stroke-opacity .5s}
+#scene .shelldet,#scene .dimx{transition:opacity .5s}
+#scene.xray .shell{fill-opacity:.09;pointer-events:none}
+#scene.xray .shelldet{opacity:.12;pointer-events:none}
+#scene.xray .radf{fill-opacity:.28}
+#scene.xray .dimx{opacity:.4}
+#scene .inside{opacity:0;pointer-events:none;transition:opacity .5s}
+#scene.xray .inside{opacity:1;pointer-events:auto}
+#scene .nohit{pointer-events:none!important}
+.striker{display:none}
+.blown .striker{display:inline}
+
+.hum{animation:hum .1s steps(2) infinite}
+@keyframes hum{to{transform:translate(.35px,-.25px)}}
+.spk{transform-box:fill-box;transform-origin:center;animation:spk .65s ease-out forwards}
+@keyframes spk{0%{opacity:1;transform:scale(.35)}35%{opacity:1}100%{opacity:0;transform:scale(1.5)}}
+.blink{animation:blink .7s steps(2) infinite}
+@keyframes blink{50%{opacity:.25}}
+
+@media (prefers-reduced-motion:reduce){
+  .flow{animation:none;stroke-dasharray:none;stroke-width:1.1}
+  .hum,.blink{animation:none}
+}
+
+/* ---------- responsive ---------- */
+@media (max-width:920px){
+  body{height:auto;min-height:100%;display:block}
+  .app{display:block}
+  .stage{height:min(calc(93vw + 120px),78vh);min-height:360px;border-bottom:1px solid var(--line)}
+  .side{overflow:visible;border-left:0}
+  .hint{display:none}
+}
+@media (max-width:520px){
+  .top{padding:14px 16px 12px}
+  .legend{font-size:12px;gap:4px 14px}
+  .chip{font-size:12px;padding:5px 9px 5px 8px}
+  .blk{padding:14px 16px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Cabine primária de média tensão<small>Quatro cubículos, da entrada de 13,8 kV até a saída em 380/220 V</small></h1>
+  <div class="legend" aria-label="Legenda">
+    <span><i style="--c:var(--energy)"></i>Energia em média tensão</span>
+    <span><i style="--c:var(--lv)"></i>Energia em baixa tensão</span>
+    <span><i class="grad"></i>Óleo frio para quente</span>
+  </div>
+</header>
+
+<main class="app">
+  <section class="stage" id="stage" aria-label="Ilustração isométrica da cabine primária">
+    <div class="tools" role="toolbar" aria-label="Camadas">
+      <button class="chip oilchip" data-view="xray" aria-pressed="false">Raio-X do óleo</button>
+      <button class="chip" data-view="showflow" aria-pressed="true">Fluxo de energia</button>
+      <button class="chip" data-view="part" aria-pressed="true">Paredes divisórias</button>
+      <button class="chip" data-view="mesh" aria-pressed="false">Telas frontais</button>
+      <button class="chip" data-view="labels" aria-pressed="true">Rótulos</button>
+    </div>
+    <svg id="scene" class="showflow e-src" viewBox="-160 -252 710 662" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Cabine primária com cubículos de medição, proteção e dois de transformação"></svg>
+    <div id="tip"></div>
+    <div class="hint">Toque em um equipamento para ver o que ele faz. Use + para aproximar e arraste para mover.</div>
+    <div class="zoom">
+      <button id="zin" aria-label="Aproximar">+</button>
+      <button id="zout" aria-label="Afastar">−</button>
+      <button id="zreset" aria-label="Enquadrar tudo">⟲</button>
+    </div>
+  </section>
+
+  <aside class="side" id="sidePanel">
+    <div class="sys-status ok" id="sysStatus" aria-live="assertive" aria-atomic="true">
+      <span class="sys-dot" id="sysDot" style="--c:var(--open)"></span>
+      <span class="sys-label" id="sysLabel">Sistema em operação normal</span>
+      <span class="sys-sub" id="sysSub">13,8 kV</span>
+    </div>
+    <section class="blk info" aria-live="polite">
+      <div class="where" id="iTag"></div>
+      <h3 id="iTitle"></h3>
+      <p id="iDesc"></p>
+      <dl id="iSpecs"></dl>
+      <dl id="iLive" class="live"></dl>
+      <div class="acts" id="iActs"></div>
+    </section>
+
+    <section class="blk">
+      <h2>Manobras</h2>
+      <div class="swrow"><div><b>Disjuntor geral</b><small>Cubículo 2, função 52</small></div><button class="tg" data-act="brk" aria-pressed="true"></button></div>
+      <div class="swrow"><div><b>Chave sob carga do T1</b><small>Cubículo 3</small></div><button class="tg" data-act="sw0" aria-pressed="true"></button></div>
+      <div class="swrow"><div><b>Chave sob carga do T2</b><small>Cubículo 4</small></div><button class="tg" data-act="sw1" aria-pressed="true"></button></div>
+      <label class="slider"><span class="lab">Demanda nos transformadores<output id="loadOut">75%</output></span>
+        <input type="range" id="load" min="0" max="130" step="1" value="75"></label>
+      <div class="scenarios">
+        <button class="btn danger" id="bShort">Simular curto no T2</button>
+        <button class="btn warn" id="bOver">Sobrecarga de 125%</button>
+        <button class="btn" id="bReset">Restaurar operação</button>
+      </div>
+    </section>
+
+    <section class="blk">
+      <h2>Telemetria, simulação acelerada</h2>
+      <div class="meter">
+        <div class="mh"><b>Transformador T1</b><span class="state" id="ms0"></span></div>
+        <div class="bar"><div class="fill" id="mf0"></div><i class="mk" style="left:70%"></i><i class="mk trip" style="left:85%"></i></div>
+        <div class="mrow"><div><span>Óleo, topo</span><strong id="mt0"></strong></div><div><span>Conservador</span><strong id="ml0"></strong></div><div><span>Carga</span><strong id="mc0"></strong></div></div>
+      </div>
+      <div class="meter">
+        <div class="mh"><b>Transformador T2</b><span class="state" id="ms1"></span></div>
+        <div class="bar"><div class="fill" id="mf1"></div><i class="mk" style="left:70%"></i><i class="mk trip" style="left:85%"></i></div>
+        <div class="mrow"><div><span>Óleo, topo</span><strong id="mt1"></strong></div><div><span>Conservador</span><strong id="ml1"></strong></div><div><span>Carga</span><strong id="mc1"></strong></div></div>
+      </div>
+      <div class="feed"><span>Corrente de entrada em 13,8 kV</span><strong id="mI"></strong></div>
+    </section>
+
+    <section class="blk">
+      <h2>Registro de eventos</h2>
+      <ol id="log"></ol>
+    </section>
+  </aside>
+</main>
+
+<script>
+(()=>{
+'use strict';
+const NS='http://www.w3.org/2000/svg';
+const S=15, KX=Math.cos(Math.PI/6), SX=KX*S, SY=.5*S;
+const P=(x,y,z)=>[(x-y)*SX,(x+y)*SY-z*S];
+const r1=v=>Math.round(v*10)/10;
+const ps=a=>a.map(p=>{const q=P(p[0],p[1],p[2]);return r1(q[0])+','+r1(q[1]);}).join(' ');
+const svg=document.getElementById('scene');
+const MONO='IBM Plex Mono, ui-monospace, Menlo, monospace';
+const COND='IBM Plex Sans Condensed, IBM Plex Sans, Arial Narrow, sans-serif';
+
+function el(t,a,p){const e=document.createElementNS(NS,t);if(a)for(const k in a){const v=a[k];if(v!==undefined&&v!==null&&v!=='')e.setAttribute(k,v);}if(p)p.appendChild(e);return e;}
+const defs=el('defs',{},svg);
+
+function shade(hex,f){const n=parseInt(hex.slice(1),16);let r=n>>16,g=(n>>8)&255,b=n&255;
+  if(f>1){const t=(f-1)*.6;r+=(255-r)*t;g+=(255-g)*t;b+=(255-b)*t;}else{r*=f;g*=f;b*=f;}
+  return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');}
+function mix(a,b,t){return a.map((v,i)=>Math.round(v+(b[i]-v)*t));}
+const rgb=c=>`rgb(${c[0]},${c[1]},${c[2]})`;
+
+const gcache={};
+function grad(c,dir){const id='g'+c.slice(1)+dir;if(!gcache[id]){
+  const g=el('linearGradient',{id,x1:0,y1:0,x2:dir==='v'?1:0,y2:dir==='v'?0:1},defs);
+  const st=dir==='v'?[[0,.6],[.36,1.22],[.68,.9],[1,.52]]:[[0,1.18],[.5,.92],[1,.55]];
+  st.forEach(([o,k])=>el('stop',{offset:o,'stop-color':shade(c,k)},g));gcache[id]=1;}
+  return `url(#${id})`;}
+
+function poly(p,pts,fill,o={}){return el('polygon',{points:ps(pts),fill,stroke:o.st||'rgba(0,0,0,.45)','stroke-width':o.sw??.5,'stroke-linejoin':'round','fill-opacity':o.op,class:o.cls},p);}
+function ln(p,a,b,o={}){const A=P(...a),B=P(...b);return el('line',Object.assign({x1:r1(A[0]),y1:r1(A[1]),x2:r1(B[0]),y2:r1(B[1])},o),p);}
+function pl(p,pts,o={}){return el('polyline',Object.assign({points:ps(pts),fill:'none'},o),p);}
+function box(p,x,y,z,w,d,h,c,o={}){
+  const a={stroke:o.st||'rgba(0,0,0,.45)','stroke-width':o.sw??.5,'stroke-linejoin':'round','fill-opacity':o.op,class:o.cls};
+  const f={};
+  f.y=el('polygon',Object.assign({points:ps([[x,y+d,z],[x+w,y+d,z],[x+w,y+d,z+h],[x,y+d,z+h]]),fill:shade(c,.7)},a),p);
+  f.x=el('polygon',Object.assign({points:ps([[x+w,y,z],[x+w,y+d,z],[x+w,y+d,z+h],[x+w,y,z+h]]),fill:shade(c,.9)},a),p);
+  f.t=el('polygon',Object.assign({points:ps([[x,y,z+h],[x+w,y,z+h],[x+w,y+d,z+h],[x,y+d,z+h]]),fill:shade(c,1.18)},a),p);
+  return f;}
+function circ3(ax,c,r,n=22){const o=[];for(let i=0;i<n;i++){const t=i/n*Math.PI*2,a=r*Math.cos(t),b=r*Math.sin(t);
+  o.push(ax==='z'?[c[0]+a,c[1]+b,c[2]]:ax==='x'?[c[0],c[1]+a,c[2]+b]:[c[0]+a,c[1],c[2]+b]);}return o;}
+function hull(pts){pts=pts.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);const lo=[],up=[];
+  for(const p of pts){while(lo.length>=2&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p);}
+  for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>=2&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p);}
+  up.pop();lo.pop();return lo.concat(up);}
+function cyl(p,ax,x,y,z,r,len,c,o={}){const i={x:0,y:1,z:2}[ax];const a=[x,y,z],b=[x,y,z];b[i]+=len;
+  const A=circ3(ax,a,r),B=circ3(ax,b,r);const H=hull(A.concat(B).map(q=>P(q[0],q[1],q[2])));
+  const body=el('polygon',{points:H.map(q=>r1(q[0])+','+r1(q[1])).join(' '),fill:grad(c,ax==='z'?'v':'h'),stroke:o.st||'rgba(0,0,0,.45)','stroke-width':.5,'fill-opacity':o.op,class:o.cls},p);
+  const cap=el('polygon',{points:ps(B),fill:shade(c,o.capk||1.22),stroke:o.st||'rgba(0,0,0,.4)','stroke-width':.5,'fill-opacity':o.op,class:o.cls},p);
+  return {body,cap};}
+const PORC='#d8d1c3';
+function ins(p,ax,x,y,z,len,r=.15,n=3,c=PORC){const i={x:0,y:1,z:2}[ax];cyl(p,ax,x,y,z,r,len,c);
+  for(let k=1;k<=n;k++){const q=[x,y,z];q[i]+=len*k/(n+1)-.04;cyl(p,ax,q[0],q[1],q[2],r*1.85,.08,c);}}
+function wire(p,pts,c,o={}){const s=ps(pts),w=o.w||2.2;
+  el('polyline',{points:s,fill:'none',stroke:o.dark||'#4a2812','stroke-width':w+1.3,'stroke-linejoin':'round','stroke-linecap':'round'},p);
+  el('polyline',{points:s,fill:'none',stroke:o.col||'#c97b44','stroke-width':w,'stroke-linejoin':'round','stroke-linecap':'round'},p);
+  if(c)el('polyline',{points:s,class:'flow'+(o.lv?' lv':''),'data-c':c},p);}
+function ftxt(p,face,x,y,z,str,o={}){const q=P(x,y,z),X=r1(q[0]),Y=r1(q[1]);
+  const m=face==='y'?`matrix(${KX},.5,0,1,${X},${Y})`:face==='x'?`matrix(${KX},-.5,0,1,${X},${Y})`:face==='floor'?`matrix(${KX},.5,${-KX},.5,${X},${Y})`:`translate(${X},${Y})`;
+  const t=el('text',{transform:m,'font-size':o.fs||8,fill:o.fill||'#cfd8e3','font-family':o.ff||MONO,'font-weight':o.fw||500,'letter-spacing':o.ls,'text-anchor':o.anchor,class:o.cls},p);
+  t.textContent=str;return t;}
+function cmp(p,id,extra){return el('g',{class:'cmp'+(extra?' '+extra:''),'data-id':id},p);}
+
+/* gradients and patterns */
+const fl=el('radialGradient',{id:'flash'},defs);
+el('stop',{offset:0,'stop-color':'#ffffff'},fl);el('stop',{offset:.35,'stop-color':'#bff6ff','stop-opacity':.9},fl);el('stop',{offset:1,'stop-color':'#49e0ff','stop-opacity':0},fl);
+const fl2=el('radialGradient',{id:'flashHot'},defs);
+el('stop',{offset:0,'stop-color':'#ffffff'},fl2);el('stop',{offset:.35,'stop-color':'#ffd38a','stop-opacity':.95},fl2);el('stop',{offset:1,'stop-color':'#ff4a2a','stop-opacity':0},fl2);
+const pat=el('pattern',{id:'mesh',width:4.5,height:4.5,patternUnits:'userSpaceOnUse',patternTransform:`matrix(${KX},.5,0,1,0,0)`},defs);
+el('path',{d:'M0 0L4.5 4.5M4.5 0L0 4.5',stroke:'#a9bacb','stroke-width':.4,opacity:.6},pat);
+
+/* ---------- constants ---------- */
+const D=10,H=13,Y=[1.2,2.2,3.2];
+const R={blades:[[],[]],fuse:[[],[]],fuseG:[],needle:[],level:[],oilF:[[],[]],parts:[[],[]],wind:[],path:[]};
+
+const world=el('g',{},svg);
+const L={};['floor','walls','wall','bus','eq','front','tags','fx'].forEach(k=>L[k]=el('g',{},world));
+L.front.setAttribute('class','frontl');
+
+/* ---------- floor ---------- */
+box(L.floor,-.6,-.6,-.7,41.2,11.2,.7,'#18212c',{st:'rgba(0,0,0,.6)'});
+{const g=el('g',{stroke:'rgba(160,195,235,.05)','stroke-width':.6},L.floor);
+  for(let x=2;x<40.6;x+=2)ln(g,[x,-.6,0],[x,10.6,0]);
+  for(let y=2;y<=10;y+=2)ln(g,[-.6,y,0],[40.6,y,0]);}
+poly(L.floor,[[1.7,4.25,0],[5.5,4.25,0],[5.5,5.85,0],[1.7,5.85,0]],'#04070a',{st:'#2d3a4a'});
+[20,30].forEach(x0=>poly(L.floor,[[x0+8.6,7.3,0],[x0+9.7,7.3,0],[x0+9.7,10.6,0],[x0+8.6,10.6,0]],'#04070a',{st:'#2d3a4a'}));
+for(let n=0;n<4;n++)ftxt(L.floor,'floor',n*10+.6,9.95,0,String(n+1).padStart(2,'0'),{fs:30,fill:'rgba(200,225,255,.07)',ff:COND,fw:700});
+
+/* ---------- walls ---------- */
+box(L.walls,0,-.6,0,40.6,.6,H,'#2b3849');
+box(L.walls,-.6,-.6,0,.6,11.2,H,'#2b3849');
+for(let n=0;n<4;n++){const x0=n*10;
+  poly(L.walls,[[x0+3.4,0,12.1],[x0+6.6,0,12.1],[x0+6.6,0,12.75],[x0+3.4,0,12.75]],'#0a0f15',{st:'#3b4b5e'});
+  for(let z=12.2;z<12.7;z+=.13)ln(L.walls,[x0+3.5,0,z],[x0+6.5,0,z],{stroke:'#34465a','stroke-width':.7});
+  ftxt(L.walls,'y',x0+.55,0,12.2,'C'+(n+1),{fs:11,fill:'rgba(220,235,255,.24)',ff:COND,fw:700});}
+ftxt(L.walls,'x',0,9.4,7.6,'SUBESTAÇÃO ABRIGADA 13,8 kV',{fs:6,fill:'rgba(255,204,26,.55)',ff:COND,fw:700,ls:.6});
+{const g=cmp(L.walls,'terra');
+  box(g,.3,0,.32,40.1,.16,.2,'#2f8f4d');
+  pl(g,[[.3,.16,.42],[40.4,.16,.42]],{stroke:'#ecd43a','stroke-width':1.4,'stroke-dasharray':'3 3'});
+  for(const x of [6.5,15,25,35])ln(g,[x,.08,.32],[x,.08,0],{stroke:'#2f8f4d','stroke-width':1.6});}
+
+/* ---------- feeders: wall-mounted load-break switch + HH fuses ---------- */
+function buildSwitch(i){
+  const x0=20+10*i,xs=[x0+3,x0+5,x0+7],yb=1.37;
+  const g=cmp(L.wall,'chave'+i);
+  box(g,x0+2.2,0,5.0,5.9,.22,5.95,'#36424f');
+  ftxt(g,'y',x0+2.35,.22,10.6,'SECC. SOB CARGA 15 kV 400 A',{fs:3.4,fill:'#9fb0c2'});
+  box(g,x0+8.2,0,6.6,.85,.75,2.5,'#4b5764');
+  pl(g,[[x0+8.62,.75,8.4],[x0+8.62,1.7,7.5]],{stroke:'#1a1f25','stroke-width':3,'stroke-linecap':'round'});
+  pl(g,[[x0+8.62,.75,8.4],[x0+8.62,1.7,7.5]],{stroke:'#d6a63a','stroke-width':1.8,'stroke-linecap':'round'});
+  xs.forEach(x=>{ins(g,'y',x,.22,10.05,1.0,.13,2);box(g,x-.2,1.22,9.88,.4,.3,.35,'#b9c2cb');});
+  xs.forEach(x=>ins(g,'y',x,.22,7.75,1.0,.13,2));
+  pl(g,[[x0+2.6,1.05,7.75],[x0+8.2,1.05,7.75]],{stroke:'#2a2418','stroke-width':3.4,'stroke-linecap':'round'});
+  pl(g,[[x0+2.6,1.05,7.75],[x0+8.2,1.05,7.75]],{stroke:'#c9a646','stroke-width':2,'stroke-linecap':'round'});
+  xs.forEach(x=>box(g,x-.2,1.22,7.58,.4,.3,.35,'#b9c2cb'));
+  xs.forEach(x=>{const o=el('polyline',{class:'blade-o'},g),b=el('polyline',{class:'blade'},g),f=el('polyline',{class:'flow','data-c':'t'+i},g);
+    R.blades[i].push({x,o,b,f,hinge:[x,yb,7.8],len:2.2});});
+  xs.forEach(x=>box(g,x-.3,1.55,9.62,.6,.45,.62,'#262c33'));
+  xs.forEach((x,k)=>wire(g,[[x,Y[k],11.2],[x,Y[k],10.95],[x,yb,10.95],[x,yb,10.2]],'b'));
+}
+function buildFuses(i){
+  const x0=20+10*i,xs=[x0+3,x0+5,x0+7];
+  const g=cmp(L.wall,'fus'+i);R.fuseG[i]=g;
+  xs.forEach(x=>{ins(g,'y',x,.22,5.65,1.0,.13,2);box(g,x-.2,1.22,5.48,.4,.3,.35,'#b9c2cb');});
+  xs.forEach(x=>{
+    cyl(g,'z',x,1.37,5.83,.27,.2,'#9ea9b5');
+    const b=cyl(g,'z',x,1.37,6.03,.25,1.3,'#efe7d6');R.fuse[i].push(b);
+    cyl(g,'z',x,1.37,7.33,.27,.2,'#9ea9b5');
+    const sg=el('g',{class:'striker'},g);cyl(sg,'z',x,1.37,7.53,.07,.5,'#ff4d5e');
+    pl(g,[[x,1.37,7.6],[x,1.37,5.7]],{class:'flow','data-c':'t'+i});});
+}
+buildSwitch(0);buildFuses(0);buildSwitch(1);buildFuses(1);
+
+/* ---------- busbars ---------- */
+{const gs=cmp(L.bus,'isol','dimx');
+  for(const xs of [1.8,11.4,18.6,29.0,38.3]){box(gs,xs-.15,0,9.82,.3,3.75,.3,'#4a5664');
+    Y.forEach(y=>ins(gs,'z',xs,y,10.12,1.08,.13,2));}
+  const gA=cmp(L.bus,'busA','dimx'),gB=cmp(L.bus,'busB');
+  Y.forEach((y,k)=>{
+    box(gA,1.4,y-.1,11.2,12.8,.2,.75,'#c97b44',{st:'rgba(60,25,5,.7)'});
+    pl(gA,[[1.4,y,11.95],[14.2,y,11.95]],{class:'flow','data-c':'src'});
+    box(gB,15.8,y-.1,11.2,23,.2,.75,'#c97b44',{st:'rgba(60,25,5,.7)'});
+    pl(gB,[[15.8,y,11.95],[38.8,y,11.95]],{class:'flow','data-c':'b'});
+  });
+  const gT=cmp(L.bus,'tc','dimx');
+  Y.forEach(y=>{box(gT,5.6,y-.36,10.95,.8,.72,1.25,'#4e6078');ftxt(gT,'y',5.66,y+.36,11.5,'TC',{fs:3.2,fill:'#c8d4e2'});});
+  const gl=el('g',{class:'tag'},L.bus);
+  ['A','B','C'].forEach((n,k)=>{const q=P(38.95,Y[k],11.55);el('text',{x:r1(q[0]+4),y:r1(q[1]+2),'font-size':6.5,fill:'#e2a36f','font-family':MONO,'font-weight':600},gl).textContent=n;});
+}
+
+/* ---------- cubicle 1: entry + metering ---------- */
+{const xs=[2.4,3.6,4.8];
+  const g=cmp(L.eq,'muflas','dimx');
+  box(g,1.6,5.4,0,.25,.3,4.3,'#46525f');box(g,5.35,5.4,0,.25,.3,4.3,'#46525f');
+  xs.forEach(x=>{cyl(g,'z',x,5.0,0,.21,4.6,'#202429');pl(g,[[x,5,0],[x,5,4.5]],{class:'flow','data-c':'src'});});
+  box(g,1.6,4.6,4.3,4.0,2.2,.25,'#4f5c6a');
+  xs.forEach(x=>{ins(g,'z',x,5.0,4.55,1.85,.22,4,'#8f99a4');cyl(g,'z',x,5.0,6.4,.12,.18,'#b9c2cb');});
+  const gp=cmp(L.eq,'pararaios','dimx');
+  xs.forEach(x=>{ins(gp,'z',x,6.25,4.55,1.35,.16,5,'#59606a');cyl(gp,'z',x,6.25,5.9,.1,.12,'#b9c2cb');
+    pl(gp,[[x,5.0,6.5],[x,6.25,6.02]],{stroke:'#c97b44','stroke-width':1.1});});
+  pl(gp,[[5.55,6.6,4.3],[5.55,6.6,0]],{stroke:'#2f8f4d','stroke-width':1.4});
+  const gw=cmp(L.eq,'muflas','dimx');
+  xs.forEach((x,k)=>wire(gw,[[x,5.0,6.58],[x,5.0,9.4],[x,Y[k],9.4],[x,Y[k],11.2]],'src'));
+  const gt=cmp(L.eq,'tp','dimx');
+  box(gt,6.2,6.2,0,3.75,1.5,1.3,'#3d4855');
+  ftxt(gt,'y',6.35,7.7,.45,'MEDIÇÃO LACRADA',{fs:3.6,fill:'#ffcc1a',fw:600});
+  [6.95,8.15,9.35].forEach((cx,k)=>{box(gt,cx-.42,6.53,1.3,.84,.84,1.25,'#4b5a6c');ins(gt,'z',cx,6.95,2.55,.85,.12,2,'#cdbfa8');
+    wire(gt,[[cx,Y[k],11.2],[cx,Y[k],9.7],[cx,6.95,9.7],[cx,6.95,3.42]],'src',{w:1.2});});
+}
+function partition(xp){
+  const g=el('g',{class:'part'},L.eq);
+  box(g,xp-.15,0,0,.3,D,H,'#5f7896',{op:.1,st:'rgba(150,185,225,.4)',sw:.6});
+  return g;}
+function passamuro(xp){const g=cmp(L.eq,'passamuro');Y.forEach(y=>box(g,xp-.3,y-.32,10.98,.6,.64,1.2,'#7d6a4f'));}
+partition(10);passamuro(10);
+
+/* ---------- cubicle 2: main breaker + relay ---------- */
+{const g=cmp(L.eq,'disjuntor','dimx');const fy=3.9;
+  box(g,12.4,.55,0,5.2,3.5,.6,'#262d36');
+  box(g,12.6,.7,.6,4.8,3.2,4.4,'#5a6672');
+  poly(g,[[13.0,fy,1.0],[17.0,fy,1.0],[17.0,fy,4.7],[13.0,fy,4.7]],'#3f4a56',{st:'rgba(0,0,0,.55)'});
+  R.brkInd=poly(g,[[13.35,fy,3.72],[14.35,fy,3.72],[14.35,fy,4.4],[13.35,fy,4.4]],'#ff5466',{st:'#0b0f14'});
+  R.brkTxt=ftxt(g,'y',13.68,fy,3.86,'L',{fs:7,fill:'#0b0f14',fw:700});
+  poly(g,[[15.0,fy,3.72],[16.6,fy,3.72],[16.6,fy,4.4],[15.0,fy,4.4]],'#e9c845',{st:'#0b0f14'});
+  ftxt(g,'y',15.08,fy,3.92,'MOLA OK',{fs:3.8,fill:'#1b1b1b',fw:600});
+  poly(g,[[13.5,fy,2.4],[14.1,fy,2.4],[14.1,fy,3.0],[13.5,fy,3.0]],'#2fbf6e',{st:'#0b0f14'});
+  poly(g,[[14.5,fy,2.4],[15.1,fy,2.4],[15.1,fy,3.0],[14.5,fy,3.0]],'#e8414f',{st:'#0b0f14'});
+  ftxt(g,'y',13.68,fy,2.52,'D',{fs:4.5,fill:'#06210f',fw:700});ftxt(g,'y',14.68,fy,2.52,'L',{fs:4.5,fill:'#2a0508',fw:700});
+  poly(g,[[15.6,fy,2.2],[16.7,fy,2.2],[16.7,fy,3.1],[15.6,fy,3.1]],'#c7ccd2',{st:'#0b0f14'});
+  for(let z=2.4;z<3;z+=.18)ln(g,[15.7,fy,z],[16.6,fy,z],{stroke:'#6f7882','stroke-width':.5});
+  ftxt(g,'y',13.05,fy,1.25,'52  DISJUNTOR A VÁCUO 15 kV',{fs:3.4,fill:'#c9d3de'});
+  const pos=[];Y.forEach(y=>{pos.push([13.6,y]);pos.push([16.4,y]);});
+  pos.sort((a,b)=>(a[0]+a[1])-(b[0]+b[1])).forEach(([x,y])=>ins(g,'z',x,y,5.0,1.3,.17,3));
+  Y.forEach(y=>{wire(g,[[13.6,y,11.2],[13.6,y,6.3]],'src');wire(g,[[16.4,y,6.3],[16.4,y,11.2]],'b');});
+}
+{const g=cmp(L.eq,'rele','dimx');const fy=8.6;
+  pl(g,[[17.3,7.7,.03],[15.6,7.7,.03],[15.6,3.95,.03]],{stroke:'#8d7cff','stroke-width':1,'stroke-dasharray':'2 2'});
+  box(g,17.3,6.8,0,2.2,1.8,5.6,'#28333f');
+  poly(g,[[17.45,fy,.3],[19.35,fy,.3],[19.35,fy,5.4],[17.45,fy,5.4]],'#212b36',{st:'rgba(0,0,0,.6)'});
+  ftxt(g,'y',17.62,fy,5.05,'RELÉ 50/51 + 26',{fs:3.6,fill:'#9fb0c2'});
+  poly(g,[[17.6,fy,4.0],[19.2,fy,4.0],[19.2,fy,4.92],[17.6,fy,4.92]],'#06241a',{st:'#1d6b47'});
+  R.relay1=ftxt(g,'y',17.7,fy,4.55,'',{fs:4.3,fill:'#6bf3ad'});
+  R.relay2=ftxt(g,'y',17.7,fy,4.12,'',{fs:3.6,fill:'#6bf3ad'});
+  R.led=['#36d27f','#ffcc1a','#ff5466'].map((c,k)=>{const q=P(17.85+.5*k,fy,3.55);return el('circle',{cx:r1(q[0]),cy:r1(q[1]),r:1.3,fill:c,opacity:.18},g);});
+  ['ON','ALM','TRIP'].forEach((t,k)=>ftxt(g,'y',17.7+.5*k,fy,3.1,t,{fs:2.4,fill:'#7d8c9c'}));
+  for(let r=0;r<3;r++)for(let c=0;c<3;c++)poly(g,[[17.75+c*.5,fy,1.6+r*.42],[18.1+c*.5,fy,1.6+r*.42],[18.1+c*.5,fy,1.9+r*.42],[17.75+c*.5,fy,1.9+r*.42]],'#3a4655',{st:'rgba(0,0,0,.5)'});
+}
+partition(20);passamuro(20);
+
+/* ---------- transformers ---------- */
+const AMB=30;
+function radiator(g,xf,xh,ty0){
+  box(g,xh,ty0+.35,.8,.55,3.55,.16,'#4f5a65');
+  for(let f=0;f<6;f++)box(g,xf,ty0+.45+f*.62,.95,1.15,.13,2.55,'#5a6672',{cls:'radf'});
+  box(g,xh,ty0+.35,3.45,.55,3.55,.16,'#4f5a65');}
+function buildTrafo(i){
+  const x0=20+10*i,mid=x0+5,tx0=mid-2.4,tx1=mid+2.4,ty0=4.4,ty1=8.4,tz0=.55,tz1=3.9,yc=6.4,W=tx1-tx0,Dd=ty1-ty0,Hh=tz1-tz0;
+  const xb=[mid-1.25,mid,mid+1.25],xbt=[mid-1.5,mid-.5,mid+.5,mid+1.5];
+  const T=cmp(L.eq,'trafo'+i);
+  box(T,tx0+.1,ty0+.15,0,W-.2,Dd-.3,tz0,'#262d35');
+  pl(T,[[tx0+.2,ty0+.3,.15],[tx0+.2,.16,.15]],{stroke:'#2f8f4d','stroke-width':1.4});
+  radiator(cmp(L.eq,'rad'+i),tx0-1.15,tx0-.55,ty0);
+  /* inside: oil back faces */
+  const O=cmp(L.eq,'oleo'+i,'inside');const e=.04;
+  poly(O,[[tx0+e,ty0+e,tz0+e],[tx0+e,ty1-e,tz0+e],[tx0+e,ty1-e,tz1-.12],[tx0+e,ty0+e,tz1-.12]],'#6a4610',{st:'none'});
+  poly(O,[[tx0+e,ty0+e,tz0+e],[tx1-e,ty0+e,tz0+e],[tx1-e,ty0+e,tz1-.12],[tx0+e,ty0+e,tz1-.12]],'#573a0d',{st:'none'});
+  poly(O,[[tx0+e,ty0+e,tz0+e],[tx1-e,ty0+e,tz0+e],[tx1-e,ty1-e,tz0+e],[tx0+e,ty1-e,tz0+e]],'#4a300a',{st:'none'});
+  /* core and windings */
+  const N=cmp(L.eq,'nucleo'+i,'inside');const Ng=el('g',{},N);R.wind[i]=Ng;
+  box(Ng,mid-1.95,yc-.32,.8,3.9,.64,.42,'#68717c');
+  [mid-1.35,mid,mid+1.35].forEach(x=>{cyl(Ng,'z',x,yc,1.22,.56,1.9,'#b8682f');cyl(Ng,'z',x,yc,3.06,.34,.06,'#8e4a1f');});
+  box(Ng,mid-1.95,yc-.32,3.12,3.9,.64,.42,'#68717c');
+  xb.forEach((x,k)=>pl(Ng,[[mid-1.35+1.35*k,yc-.3,3.54],[x,5.95,tz1-.05]],{stroke:'#d9a06a','stroke-width':.9}));
+  xbt.forEach((x,k)=>pl(Ng,[[mid-1.5+k,yc+.45,2.6],[mid-1.5+k,yc+.45,3.6],[x,7.7,tz1-.05]],{stroke:'#d9a06a','stroke-width':1.1}));
+  /* particles */
+  const PG=el('g',{class:'inside nohit'},L.eq);
+  const pth=[[mid+.68,yc,1.05,.55],[mid+.68,yc,3.62,1],[tx1-.25,yc,3.68,1],[tx1+.6,yc,3.45,.92],[tx1+.6,yc,1.05,.1],[tx1-.25,yc,.9,.28]];
+  const seg=[];let tot=0;for(let k=0;k<pth.length;k++){const a=pth[k],b=pth[(k+1)%pth.length];const l=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]);seg.push({a,b,l,s:tot});tot+=l;}
+  R.path[i]={seg,tot,mid};
+  for(let k=0;k<56;k++){const c=el('circle',{r:1.45,fill:'#ffb22e'},PG);R.parts[i].push({c,u:Math.random(),side:k%2?1:-1,yo:(Math.random()*2-1)*1.55});}
+  /* oil front & top faces */
+  const OF=cmp(L.eq,'oleo'+i,'inside');
+  R.oilF[i].push(poly(OF,[[tx1-e,ty0+e,tz0+e],[tx1-e,ty1-e,tz0+e],[tx1-e,ty1-e,tz1-.12],[tx1-e,ty0+e,tz1-.12]],'#ffb22e',{op:.2,st:'none',cls:'nohit'}));
+  R.oilF[i].push(poly(OF,[[tx0+e,ty1-e,tz0+e],[tx1-e,ty1-e,tz0+e],[tx1-e,ty1-e,tz1-.12],[tx0+e,ty1-e,tz1-.12]],'#ffb22e',{op:.16,st:'none',cls:'nohit'}));
+  R.oilF[i].push(poly(OF,[[tx0+e,ty0+e,tz1-.12],[tx1-e,ty0+e,tz1-.12],[tx1-e,ty1-e,tz1-.12],[tx0+e,ty1-e,tz1-.12]],'#ffc54d',{op:.32,st:'#ffd27a',sw:.8}));
+  /* tank shell */
+  const T2=cmp(L.eq,'trafo'+i);
+  box(T2,tx0,ty0,tz0,W,Dd,Hh,'#6f7d8b',{cls:'shell',st:'rgba(170,195,220,.35)'});
+  box(T2,tx0-.08,ty0-.08,tz1,W+.16,Dd+.16,.12,'#7c8a98',{cls:'shell',st:'rgba(0,0,0,.5)'});
+  const T3=cmp(L.eq,'trafo'+i,'shelldet');
+  ftxt(T3,'y',tx0+.3,ty1,2.85,'T'+(i+1),{fs:15,fill:'rgba(240,246,252,.85)',ff:COND,fw:700});
+  poly(T3,[[mid-1.15,ty1,1.35],[mid+.25,ty1,1.35],[mid+.25,ty1,2.25],[mid-1.15,ty1,2.25]],'#c9ced3',{st:'#2a3038'});
+  ftxt(T3,'y',mid-1.05,ty1,1.98,'500 kVA',{fs:3.4,fill:'#20262c',fw:600});
+  ftxt(T3,'y',mid-1.05,ty1,1.55,'13,8 kV/380 V',{fs:2.6,fill:'#3b434c'});
+  box(T3,mid-.3,ty1,.65,.3,.35,.3,'#3b4652');
+  /* thermometer */
+  const TM=cmp(L.eq,'termo'+i,'shelldet');const cx=mid+1.3,cz=2.65;
+  el('polygon',{points:ps(circ3('y',[cx,ty1+.04,cz],.55)),fill:'#2a323b',stroke:'#11161b','stroke-width':.6},TM);
+  el('polygon',{points:ps(circ3('y',[cx,ty1+.05,cz],.46)),fill:'#eef2f5',stroke:'none'},TM);
+  [[90,'#e8b100'],[105,'#e8414f']].forEach(([t,c])=>{const a=(225-270*t/120)*Math.PI/180;
+    ln(TM,[cx+.32*Math.cos(a),ty1+.06,cz+.32*Math.sin(a)],[cx+.45*Math.cos(a),ty1+.06,cz+.45*Math.sin(a)],{stroke:c,'stroke-width':1.3});});
+  R.needle[i]=el('polyline',{fill:'none',stroke:'#c4212f','stroke-width':.9,'stroke-linecap':'round'},TM);
+  R.needle[i].dataset.c=[cx,ty1+.07,cz].join(',');
+  /* silica gel breather (behind right radiators) */
+  const SG=cmp(L.eq,'silica'+i);
+  pl(SG,[[tx1-.45,4.95,5.05],[tx1+.35,4.55,5.05],[tx1+.35,4.55,3.75]],{stroke:'#4f5a65','stroke-width':1.6,'stroke-linejoin':'round'});
+  cyl(SG,'z',tx1+.35,4.55,2.75,.2,.95,'#f08a24');cyl(SG,'z',tx1+.35,4.55,3.7,.22,.12,'#9aa5b1');
+  radiator(cmp(L.eq,'rad'+i),tx1,tx1,ty0);
+  /* conservator */
+  const C=cmp(L.eq,'conserv'+i);
+  box(C,tx0+.75,4.87,4.02,.16,.16,.45,'#59646f');box(C,tx1-.95,4.87,4.02,.16,.16,.45,'#59646f');
+  cyl(C,'z',mid+1.45,4.95,4.02,.07,.4,'#59646f');box(C,mid+1.28,4.8,4.1,.34,.3,.24,'#3b4249');
+  cyl(C,'x',tx0+.45,4.95,4.85,.48,W-.9,'#73818f');
+  const ex=tx1-.45+.02;
+  el('polygon',{points:ps([[ex,4.82,4.55],[ex,5.1,4.55],[ex,5.1,5.15],[ex,4.82,5.15]]),fill:'#151b21',stroke:'#0b0f14','stroke-width':.4},C);
+  R.level[i]=el('polygon',{fill:'#ffb22e'},C);R.level[i].dataset.x=ex;
+  /* MT bushings */
+  const BM=cmp(L.eq,'buchasMT'+i);
+  xb.forEach(x=>{ins(BM,'z',x,5.95,tz1+.12,1.15,.15,3);cyl(BM,'z',x,5.95,tz1+1.27,.1,.14,'#b9c2cb');});
+  /* LV bushings */
+  const BB=cmp(L.eq,'buchasBT'+i);
+  xbt.forEach(x=>{ins(BB,'z',x,7.7,tz1+.12,.58,.13,2,'#cfc6b6');cyl(BB,'z',x,7.7,tz1+.7,.1,.1,'#b9c2cb');});
+  /* MT links from fuses */
+  const LM=cmp(L.eq,'ligMT'+i);
+  [x0+3,x0+5,x0+7].forEach((x,k)=>wire(LM,[[x,1.52,5.65],[x,2.3,5.65],[x,2.3,5.95],[xb[k],5.95,5.95],[xb[k],5.95,5.42]],'t'+i));
+  /* LV cables */
+  const CB=cmp(L.eq,'cabosBT'+i);
+  xbt.forEach((x,k)=>{const zz=5.05+.14*k,xx=x0+8.78+.22*k;
+    wire(CB,[[x,7.7,tz1+.8],[x,7.7,zz],[xx,7.7,zz],[xx,7.7,.05],[xx,9.9,.05]],'t'+i,{w:2.1,col:'#23272c',dark:'#000',lv:true});});
+}
+buildTrafo(0);partition(30);passamuro(30);buildTrafo(1);
+
+/* ---------- front mesh doors ---------- */
+{const g=cmp(L.front,'tela');
+  for(let n=0;n<4;n++){const x0=n*10;
+    poly(g,[[x0+.25,D,0],[x0+9.75,D,0],[x0+9.75,D,11],[x0+.25,D,11]],'url(#mesh)',{st:'#7d8b9a',sw:1.1});
+    poly(g,[[x0+.25,D,0],[x0+9.75,D,0],[x0+9.75,D,11],[x0+.25,D,11]],'#0b121c',{op:.25,st:'none'});
+    ln(g,[x0+5,D,0],[x0+5,D,11],{stroke:'#7d8b9a','stroke-width':1});
+    ln(g,[x0+.25,D,5.5],[x0+9.75,D,5.5],{stroke:'#7d8b9a','stroke-width':.8});
+    poly(g,[[x0+4.3,D,7.3],[x0+5.7,D,7.3],[x0+5,D,8.5]],'#ffcc1a',{st:'#111',sw:.8});
+    ftxt(g,'y',x0+4.88,D,7.48,'!',{fs:8,fill:'#111',fw:700});
+    ftxt(g,'y',x0+3.1,D,6.5,'PERIGO  ALTA TENSÃO',{fs:4.4,fill:'#ffcc1a',ff:COND,fw:700});
+    box(g,x0+4.65,D,4.2,.12,.15,.7,'#c3ccd5');box(g,x0+5.23,D,4.2,.12,.15,.7,'#c3ccd5');}
+}
+
+/* ---------- cubicle tags ---------- */
+const TAGS=['Entrada e medição','Proteção geral','Transformação T1','Transformação T2'];
+const tagEls=[];
+TAGS.forEach((t,n)=>{const x0=n*10;const g=cmp(L.tags,'cub'+n,'tag');
+  const a=P(x0+5,0,H),b=P(x0+5,0,H+1.6);
+  el('line',{x1:r1(a[0]),y1:r1(a[1]),x2:r1(b[0]),y2:r1(b[1]),stroke:'rgba(73,224,255,.6)','stroke-width':.8,'stroke-dasharray':'2 2'},g);
+  el('circle',{cx:r1(a[0]),cy:r1(a[1]),r:1.8,fill:'#49e0ff'},g);
+  const rect=el('rect',{rx:4,fill:'rgba(10,18,28,.92)',stroke:'#2f4a68','stroke-width':.8},g);
+  const tx=el('text',{x:r1(b[0]),y:r1(b[1]-5),'text-anchor':'middle','font-size':8.6,'font-family':COND,'font-weight':600,fill:'#e3eaf2'},g);
+  const s1=el('tspan',{fill:'#49e0ff'},tx);s1.textContent=(n+1)+'  ';const s2=el('tspan',{},tx);s2.textContent=t;
+  tagEls.push({rect,tx});});
+function layoutTags(){tagEls.forEach(({rect,tx})=>{try{const bb=tx.getBBox();rect.setAttribute('x',r1(bb.x-6));rect.setAttribute('y',r1(bb.y-3));rect.setAttribute('width',r1(bb.width+12));rect.setAttribute('height',r1(bb.height+6));}catch(e){}});}
+layoutTags();if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layoutTags);
+
+/* ---------- information ---------- */
+const INFO={
+  overview:{tag:'Visão geral',t:'Cabine primária de 13,8 kV',d:'A cabine primária recebe energia em média tensão diretamente da rede da distribuidora e a entrega em baixa tensão para a instalação. A energia percorre quatro cubículos em sequência: entrada e medição, proteção geral e dois de transformação. Toque em um equipamento para ver o que ele faz, faça manobras no painel e ligue o raio-X para ver o óleo circulando dentro dos transformadores.',
+    s:[['Tensão de fornecimento','13,8 kV, trifásico, 60 Hz'],['Potência instalada','2 × 500 kVA'],['Tensão de saída','380/220 V'],['Referência normativa','ABNT NBR 14039']]},
+  cub0:{tag:'Cubículo 1',t:'Entrada e medição',d:'É por aqui que a rede da distribuidora entra. O ramal subterrâneo sobe pela canaleta, termina nas muflas e passa pelos para-raios e pelos transformadores de medição usados no faturamento. O cubículo é lacrado pela concessionária e nenhuma chave aqui desliga a instalação.',
+    s:[['Equipamentos','Muflas, para-raios, TCs e TPs'],['Acesso','Lacrado pela distribuidora'],['Condição','Sempre energizado']]},
+  cub1:{tag:'Cubículo 2',t:'Proteção geral',d:'Abriga o disjuntor geral de média tensão e o relé que o comanda. É a fronteira entre a rede pública e a instalação: um curto-circuito ou uma sobrecarga grave dentro da cabine faz o relé abrir este disjuntor, isolando o defeito sem afetar a rede da distribuidora.',
+    s:[['Equipamentos','Disjuntor a vácuo e relé de proteção'],['Lado da entrada','Sempre energizado'],['Lado da saída','Barramento principal']]},
+  muflas:{tag:'Cubículo 1',t:'Ramal de entrada e muflas',d:'Os três cabos isolados do ramal subterrâneo sobem pela canaleta e terminam nas muflas, que fazem a transição entre o cabo blindado e os condutores nus da cabine. Na ponta do cabo a blindagem é interrompida e o campo elétrico se concentra; a mufla distribui esse campo para evitar descargas e a perfuração da isolação.',
+    s:[['Classe de tensão','15 kV'],['Tipo','Contrátil a frio ou termocontrátil'],['Quantidade','Uma por fase']]},
+  pararaios:{tag:'Cubículo 1',t:'Para-raios de óxido de zinco',d:'Ligados entre cada fase e a terra, ficam praticamente isolantes na tensão normal. Diante de um surto, causado por descarga atmosférica ou manobra na rede, passam a conduzir e desviam a energia para a malha de aterramento, limitando a sobretensão que chega aos equipamentos.',
+    s:[['Tensão nominal','12 kV (rede de 13,8 kV)'],['Corrente de descarga','10 kA'],['Ligação','Fase e terra']]},
+  tc:{tag:'Cubículo 1',t:'Transformadores de corrente (TCs)',d:'Envolvem as barras e reproduzem a corrente primária em escala reduzida, normalmente 5 A no secundário, para o medidor de faturamento da distribuidora. São equipamentos de exatidão e ficam lacrados.',
+    s:[['Relação típica','50 para 5 A'],['Uso','Medição de faturamento'],['Proprietário do circuito','Distribuidora']]},
+  tp:{tag:'Cubículo 1',t:'Transformadores de potencial (TPs)',d:'Rebaixam a tensão de 13,8 kV para cerca de 115 V, permitindo que o medidor registre a tensão e calcule a energia consumida. Junto com os TCs formam o conjunto de medição indireta, lacrado pela distribuidora.',
+    s:[['Secundário','115 V ou 115/√3 V'],['Quantidade','Um por fase'],['Uso','Medição de faturamento']]},
+  busA:{tag:'Cubículos 1 e 2',t:'Barramento de entrada',d:'Trecho de barras entre a entrada e o disjuntor geral. Atenção: ele continua energizado mesmo com o disjuntor aberto, porque está antes dele. Só a distribuidora pode desligá-lo.',
+    s:[['Material','Cobre eletrolítico'],['Condição','Sempre energizado'],['Fixação','Isoladores de apoio']]},
+  busB:{tag:'Cubículos 2 a 4',t:'Barramento principal',d:'Barras de cobre que saem do disjuntor geral e alimentam os cubículos de transformação. Ficam apoiadas em isoladores e atravessam as paredes por buchas de passagem. A seção e o espaçamento entre fases são dimensionados para a corrente nominal e para os esforços mecânicos de um curto-circuito.',
+    s:[['Material','Cobre eletrolítico'],['Fases','A, B e C'],['Alimentado por','Disjuntor geral']]},
+  isol:{tag:'Barramentos',t:'Isoladores de apoio',d:'Sustentam as barras e as mantêm afastadas das estruturas aterradas. As saias aumentam a distância de escoamento na superfície, dificultando que poeira e umidade criem um caminho para a corrente.',
+    s:[['Material','Porcelana ou epóxi'],['Classe','15 kV']]},
+  passamuro:{tag:'Paredes divisórias',t:'Buchas de passagem',d:'Permitem que as barras atravessem as paredes entre cubículos mantendo a isolação. Assim cada cubículo fica fisicamente separado, o que limita a propagação de um arco elétrico.',
+    s:[['Material','Resina epóxi'],['Classe','15 kV']]},
+  disjuntor:{tag:'Cubículo 2',t:'Disjuntor geral de média tensão',d:'É o principal equipamento de proteção da cabine. Interrompe tanto a corrente de carga quanto a de curto-circuito, extinguindo o arco dentro de ampolas a vácuo. Ele não decide sozinho: abre quando o relé de proteção manda. No painel, L vermelho significa ligado e D verde significa desligado.',
+    s:[['Tensão nominal','15 kV'],['Corrente nominal','630 A'],['Capacidade de interrupção','16 kA'],['Meio de extinção','Vácuo']]},
+  rele:{tag:'Cubículo 2',t:'Relé de proteção secundário',d:'Mede a corrente por TCs de proteção e decide quando abrir o disjuntor. A função 51 atua com retardo para sobrecargas; a 50 atua instantaneamente em curtos. Também recebe o contato de desligamento dos termômetros dos transformadores (função 26). É alimentado por fonte capacitiva ou nobreak para funcionar mesmo sem tensão.',
+    s:[['Funções','50, 51, 50N, 51N e 26'],['Atua sobre','Bobina de abertura do disjuntor']]},
+  terra:{tag:'Toda a cabine',t:'Barramento e malha de aterramento',d:'Todas as partes metálicas que não conduzem corrente, como carcaças, estruturas, telas e tanques, são ligadas a este barramento, que desce para a malha enterrada sob a cabine. Em um defeito, a corrente encontra um caminho seguro e a proteção atua.',
+    s:[['Cores','Verde e amarelo'],['Ligado a','Tanques, estruturas, para-raios e telas']]},
+  tela:{tag:'Frente dos cubículos',t:'Telas de proteção',d:'Na prática os cubículos são fechados por portas de tela metálica com cadeado. Elas deixam ver os equipamentos e ventilar o ambiente, mas impedem o acesso a partes energizadas. Só se entra com o circuito desligado, testado e aterrado. Desligue a camada “Telas frontais” para ver o interior.',
+    s:[['Material','Tela metálica aterrada'],['Sinalização','Perigo, alta tensão']]}
+};
+for(let i=0;i<2;i++){const n=i+1,cub='Cubículo '+(i+3);
+  Object.assign(INFO,{
+    ['cub'+(i+2)]:{tag:cub,t:'Transformação T'+n,d:'Recebe o barramento principal e alimenta o transformador T'+n+'. A chave seccionadora sob carga permite ligar e desligar o transformador com segurança; os fusíveis HH logo abaixo o protegem contra curtos; o transformador a óleo rebaixa 13,8 kV para 380/220 V.',
+      s:[['Equipamentos','Chave sob carga, fusíveis HH, transformador'],['Potência','500 kVA']]},
+    ['chave'+i]:{tag:cub,t:'Chave seccionadora sob carga do T'+n,d:'Liga e desliga o transformador mesmo com corrente de carga. Um mecanismo de molas abre as três lâminas de uma vez e com velocidade, e as câmaras de extinção sobre os contatos abafam o arco de abertura. Ela não interrompe curto-circuito: essa tarefa é dos fusíveis HH e do disjuntor geral.',
+      s:[['Classe de tensão','15 kV'],['Corrente nominal','400 A'],['Acionamento','Manual, por alavanca e molas'],['Abertura automática','Pelo percussor dos fusíveis']],act:'sw'+i},
+    ['fus'+i]:{tag:cub,t:'Fusíveis HH limitadores do T'+n,d:'Protegem o transformador contra curtos-circuitos. Por serem limitadores, interrompem a corrente antes que ela atinja o valor de pico, em menos de meio ciclo. Ao fundir, um pino percussor salta e dispara a abertura da chave, evitando que o transformador continue operando com apenas duas fases.',
+      s:[['Tipo','HH, limitador de corrente'],['Corrente nominal','Cerca de 2 vezes a do transformador'],['Sinalização','Pino percussor vermelho']],act:'fus'+i},
+    ['ligMT'+i]:{tag:cub,t:'Ligações de média tensão',d:'Condutores que levam a energia dos fusíveis até as buchas de média tensão do transformador T'+n+'.',s:[['Tensão','13,8 kV'],['Corrente nominal','Cerca de 21 A']]},
+    ['trafo'+i]:{tag:cub,t:'Transformador T'+n+', 500 kVA',d:'Rebaixa a tensão de 13,8 kV para 380/220 V. Dentro do tanque, o núcleo de aço-silício e os enrolamentos de cobre ficam totalmente imersos em óleo isolante. As perdas no núcleo e nos enrolamentos viram calor, que o óleo leva até os radiadores. Ligue o raio-X para ver o interior.',
+      s:[['Tensões','13,8 kV e 380/220 V'],['Ligação','Dyn1'],['Refrigeração','ONAN, óleo e ar naturais'],['Corrente primária','≈ 20,9 A'],['Corrente secundária','≈ 760 A']],act:'xray',live:'t'},
+    ['nucleo'+i]:{tag:cub+', dentro do tanque',t:'Núcleo e enrolamentos do T'+n,d:'O núcleo é feito de chapas finas de aço-silício de grão orientado, empilhadas e isoladas entre si para reduzir as correntes parasitas. Em cada coluna ficam os enrolamentos de baixa tensão, por dentro, e de alta tensão, por fora. Com o transformador energizado o núcleo vibra a 120 Hz, de onde vem o zumbido típico.',
+      s:[['Núcleo','Aço-silício laminado'],['Enrolamentos','Cobre esmaltado ou com papel'],['Ruído','Magnetostricção do núcleo']],live:'t'},
+    ['oleo'+i]:{tag:cub+', dentro do tanque',t:'Óleo isolante do T'+n,d:'Preenche todo o tanque com duas funções: isolar eletricamente as partes energizadas e transportar o calor. A circulação é natural, por termossifão: o óleo aquecido junto aos enrolamentos fica menos denso e sobe; no topo segue para os radiadores, cede calor ao ar, fica mais denso e desce, voltando pelo fundo. Quanto maior a carga, mais rápida a circulação.',
+      s:[['Tipo','Mineral isolante ou éster natural'],['Volume','Algumas centenas de litros'],['Ensaios periódicos','Rigidez dielétrica, umidade, acidez e gases dissolvidos']],act:'xray',live:'o'},
+    ['rad'+i]:{tag:cub,t:'Radiadores do T'+n,d:'Aletas ocas ligadas ao tanque por cima e por baixo. O óleo quente entra pelo topo, desce pelas aletas trocando calor com o ar da cabine e volta mais frio pelo fundo. Por isso a cabine precisa de ventilação permanente.',
+      s:[['Troca de calor','Óleo para ar, convecção natural'],['Posição','Laterais do tanque']],act:'xray',live:'o'},
+    ['conserv'+i]:{tag:cub,t:'Conservador de óleo do T'+n,d:'Tanque de expansão acima do transformador. O óleo dilata quando aquece e precisa de espaço; o conservador acomoda essa variação mantendo o tanque principal sempre cheio. O visor na lateral mostra o nível. No tubo de ligação fica o relé Buchholz, que detecta gases gerados por falhas internas.',
+      s:[['Indicador','Visor de nível na lateral'],['Proteção associada','Relé Buchholz'],['Respiro','Secador de sílica gel']],live:'o'},
+    ['silica'+i]:{tag:cub,t:'Secador de ar do T'+n,d:'Quando o óleo esfria e contrai, o conservador puxa ar de fora. Esse ar passa antes por cristais de sílica gel, que retêm a umidade e protegem a rigidez dielétrica do óleo. Os cristais mudam de cor quando saturados e devem ser trocados.',
+      s:[['Material','Sílica gel com indicador de cor'],['Manutenção','Troca quando a cor muda']]},
+    ['buchasMT'+i]:{tag:cub,t:'Buchas de média tensão do T'+n,d:'Isoladores ocos que permitem que os condutores de 13,8 kV atravessem a tampa do tanque sem encostar no metal aterrado. São mais altas que as de baixa tensão porque precisam de mais distância de isolamento.',
+      s:[['Classe','15 kV'],['Quantidade','Três, uma por fase']]},
+    ['buchasBT'+i]:{tag:cub,t:'Buchas de baixa tensão do T'+n,d:'Saídas de 380/220 V: três fases e o neutro. Conduzem correntes muito maiores que as de média tensão, cerca de 760 A por fase em plena carga, por isso os terminais são mais robustos.',
+      s:[['Tensão','380/220 V'],['Quantidade','Três fases e neutro']]},
+    ['termo'+i]:{tag:cub,t:'Termômetro de óleo do T'+n,d:'Mede a temperatura do óleo no topo do tanque, o ponto mais quente do óleo. Tem contatos ajustáveis: o primeiro gera alarme e o segundo manda o relé abrir o disjuntor geral (função 26). Nesta simulação os ajustes são 90 °C para alarme e 105 °C para desligamento.',
+      s:[['Alarme','90 °C'],['Desligamento','105 °C'],['Atua via','Relé, função 26']],live:'t'},
+    ['cabosBT'+i]:{tag:cub,t:'Saída de baixa tensão do T'+n,d:'Cabos de 380/220 V que seguem pela canaleta até o quadro geral de baixa tensão da instalação. É aqui que a energia deixa a cabine.',
+      s:[['Tensão','380/220 V'],['Destino','Quadro geral de baixa tensão']]}
+  });}
+
+/* ---------- state ---------- */
+const st={brk:true,sw:[true,true],fuse:[true,true],load:.75,temp:[AMB+55*.5625,AMB+55*.5625],trip:null,alarm:[false,false]};
+const ang=[0,0];
+const enT=i=>st.brk&&st.sw[i]&&st.fuse[i];
+let sel='overview';
+
+const $=id=>document.getElementById(id);
+const fmt=(v,d=0)=>v.toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const lvlOf=T=>Math.max(5,Math.min(98,35+(T-20)*.55));
+function logEv(msg,kind='info'){const li=document.createElement('li');li.className=kind;
+  const t=document.createElement('time');t.textContent=new Date().toLocaleTimeString('pt-BR');
+  const s=document.createElement('span');s.textContent=msg;li.append(t,s);
+  const ol=$('log');ol.prepend(li);while(ol.children.length>8)ol.lastChild.remove();}
+
+function spark(x,y,z,big=false,hot=false){const q=P(x,y,z);
+  const g=el('g',{transform:`translate(${r1(q[0])},${r1(q[1])})`},L.fx);const s=el('g',{class:'spk'},g);
+  el('circle',{r:big?18:7,fill:hot?'url(#flashHot)':'url(#flash)'},s);
+  const n=big?10:6;for(let k=0;k<n;k++){const a=Math.random()*Math.PI*2,l=(big?14:7)+Math.random()*(big?12:5);
+    let d='M0 0';for(let j=1;j<=3;j++){d+=`L${r1(Math.cos(a)*l*j/3+(Math.random()-.5)*4)} ${r1(Math.sin(a)*l*j/3+(Math.random()-.5)*4)}`;}
+    el('path',{d,stroke:hot?'#fff1c9':'#e9fbff','stroke-width':big?1.2:.9,fill:'none','stroke-linecap':'round'},s);}
+  setTimeout(()=>g.remove(),720);}
+
+function setTg(btn,on,blown){btn.setAttribute('aria-pressed',on?'true':'false');btn.classList.toggle('blown',!!blown);
+  btn.textContent=blown?'Fusível queimado':on?'Ligado (L)':'Desligado (D)';}
+function applyState(){
+  svg.classList.toggle('e-b',st.brk);svg.classList.toggle('e-t0',enT(0));svg.classList.toggle('e-t1',enT(1));
+  R.brkInd.setAttribute('fill',st.brk?'#ff5466':'#36d27f');R.brkTxt.textContent=st.brk?'L':'D';
+  setTg(document.querySelector('[data-act="brk"]'),st.brk);
+  for(let i=0;i<2;i++){setTg(document.querySelector(`[data-act="sw${i}"]`),st.sw[i],!st.fuse[i]);
+    R.fuseG[i].classList.toggle('blown',!st.fuse[i]);
+    R.fuse[i].forEach(b=>{b.body.setAttribute('fill',st.fuse[i]?grad('#efe7d6','v'):grad('#5b4136','v'));b.cap.setAttribute('fill',st.fuse[i]?shade('#efe7d6',1.22):'#6e4a3e');});
+    R.wind[i].classList.toggle('hum',enT(i));}
+  renderInfo();}
+
+/* ---------- actions ---------- */
+function curr(i){return enT(i)?st.load*20.9+.3:0;}
+function toggleBrk(){
+  if(st.brk){st.brk=false;spark(15,3.9,3.4,false);logEv('Disjuntor geral aberto. O barramento principal e os transformadores ficaram sem tensão; o barramento de entrada continua energizado.','warn');}
+  else{st.brk=true;st.trip=null;logEv('Disjuntor geral fechado. Barramento principal energizado.','ok');}
+  applyState();}
+function toggleSw(i){const n=i+1;
+  if(st.sw[i]){const I=curr(i);st.sw[i]=false;
+    if(I>1){setTimeout(()=>R.blades[i].forEach(b=>spark(b.x,1.55,9.9)),60);logEv(`Chave do T${n} aberta sob carga (${fmt(I,1)} A). O arco foi extinto nas câmaras.`,'info');}
+    else logEv(`Chave do T${n} aberta sem corrente.`,'info');}
+  else{if(!st.fuse[i]){logEv(`A chave do T${n} não fecha com fusível queimado. Substitua os fusíveis primeiro.`,'err');return;}
+    st.sw[i]=true;logEv(st.brk?`Chave do T${n} fechada. T${n} energizado.`:`Chave do T${n} fechada, mas o barramento principal está sem tensão.`,st.brk?'ok':'info');}
+  applyState();}
+function replaceFuse(i){st.fuse[i]=true;logEv(`Fusíveis do T${i+1} substituídos. A chave pode ser fechada.`,'ok');applyState();}
+function shortT2(){
+  if(!enT(1)){logEv('O T2 está desenergizado: não há corrente para alimentar um curto.','info');return;}
+  const mid=35;[mid-1.25,mid,mid+1.25].forEach((x,k)=>setTimeout(()=>spark(x,5.95,5.3,true,true),k*40));
+  logEv('Curto-circuito no primário do T2.','err');
+  setTimeout(()=>{st.fuse[1]=false;[33,35,37].forEach(x=>spark(x,1.37,6.7,false,true));
+    logEv('Fusíveis HH do T2 interromperam o curto em poucos milissegundos.','warn');applyState();},180);
+  setTimeout(()=>{st.sw[1]=false;applyState();
+    logEv('O percussor disparou a abertura da chave do T2. O disjuntor geral seguiu fechado e o T1 continua operando: a proteção foi seletiva.','ok');},520);}
+function overload(){setLoad(125);logEv('Demanda elevada para 125%. Acompanhe a temperatura do óleo.','warn');}
+function resetAll(){st.brk=true;st.sw=[true,true];st.fuse=[true,true];st.trip=null;setLoad(75);logEv('Operação restaurada: disjuntor e chaves fechados, demanda em 75%.','ok');applyState();}
+function setLoad(v){$('load').value=v;st.load=v/100;$('loadOut').textContent=v+'%';
+  svg.style.setProperty('--fd',(.3+1.5*(1-Math.min(st.load,1.3)/1.3)).toFixed(2)+'s');}
+
+document.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.act;
+  if(a==='brk')toggleBrk();else{const i=+a.slice(2);if(!st.fuse[i]&&!st.sw[i]){replaceFuse(i);}else toggleSw(i);}}));
+$('load').addEventListener('input',e=>setLoad(+e.target.value));
+$('bShort').addEventListener('click',shortT2);
+$('bOver').addEventListener('click',overload);
+$('bReset').addEventListener('click',resetAll);
+
+/* ---------- view toggles ---------- */
+function setView(v,on){const b=document.querySelector(`[data-view="${v}"]`);b.setAttribute('aria-pressed',on?'true':'false');
+  if(v==='xray')svg.classList.toggle('xray',on);
+  if(v==='showflow')svg.classList.toggle('showflow',on);
+  if(v==='part')svg.classList.toggle('nopart',!on);
+  if(v==='mesh')svg.classList.toggle('mesh',on);
+  if(v==='labels')svg.classList.toggle('nolabels',!on);
+  renderInfo();}
+document.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view,b.getAttribute('aria-pressed')!=='true')));
+
+/* ---------- info panel ---------- */
+function liveRows(id){const m=id.match(/(\d)$/);if(!m)return null;const i=+m[1],I=INFO[id];
+  if(I.live==='t')return [['Estado',enT(i)?'Energizado':'Desligado'],['Óleo no topo',fmt(st.temp[i])+' °C'],['Carga',enT(i)?fmt(st.load*100)+'%':'0%'],['Corrente primária',fmt(curr(i),1)+' A']];
+  if(I.live==='o'){const d=st.temp[i]-AMB;return [['Óleo no topo',fmt(st.temp[i])+' °C'],['Nível no conservador',fmt(lvlOf(st.temp[i]))+'%'],['Circulação',d<6?'Quase parada':d<25?'Lenta':d<50?'Moderada':'Intensa']];}
+  return null;}
+function renderLive(){const rows=INFO[sel]&&liveRows(sel);const dl=$('iLive');
+  if(!rows){dl.innerHTML='';return;}
+  dl.innerHTML=rows.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');}
+function renderInfo(){const I=INFO[sel]||INFO.overview;
+  $('iTag').textContent=I.tag;$('iTitle').textContent=I.t;$('iDesc').textContent=I.d;
+  $('iSpecs').innerHTML=(I.s||[]).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');
+  renderLive();
+  const A=$('iActs');A.innerHTML='';
+  const add=(txt,fn,cls='')=>{const b=document.createElement('button');b.className='btn '+cls;b.textContent=txt;b.addEventListener('click',fn);A.append(b);};
+  if(sel==='disjuntor'||sel==='rele')add(st.brk?'Abrir disjuntor':'Fechar disjuntor',toggleBrk);
+  if(I.act&&I.act.startsWith('sw')){const i=+I.act.slice(2);add(st.sw[i]?'Abrir chave':'Fechar chave',()=>toggleSw(i));}
+  if(I.act&&I.act.startsWith('fus')){const i=+I.act.slice(3);if(!st.fuse[i])add('Substituir fusíveis',()=>replaceFuse(i),'warn');else if(i===1)add('Simular curto no T2',shortT2,'danger');}
+  if(I.act==='xray'){const on=svg.classList.contains('xray');add(on?'Fechar raio-X':'Ver óleo em raio-X',()=>setView('xray',!on),'warn');}
+}
+function select(id){if(!INFO[id])id='overview';sel=id;
+  svg.querySelectorAll('.cmp.sel').forEach(g=>g.classList.remove('sel'));
+  if(id!=='overview')svg.querySelectorAll(`.cmp[data-id="${id}"]`).forEach(g=>g.classList.add('sel'));
+  renderInfo();}
+
+/* ---------- pointer: tooltip, select, pan ---------- */
+const stage=$('stage'),tip=$('tip');
+const VB={x:-160,y:-252,w:710,h:662};
+const view={z:1,cx:VB.x+VB.w/2,cy:VB.y+VB.h/2};
+function setVB(){const w=VB.w/view.z,h=VB.h/view.z;
+  view.cx=Math.max(VB.x+w/2-40,Math.min(VB.x+VB.w-w/2+40,view.cx));view.cy=Math.max(VB.y+h/2-40,Math.min(VB.y+VB.h-h/2+40,view.cy));
+  if(view.z===1){view.cx=VB.x+VB.w/2;view.cy=VB.y+VB.h/2;}
+  svg.setAttribute('viewBox',`${r1(view.cx-w/2)} ${r1(view.cy-h/2)} ${r1(w)} ${r1(h)}`);
+  svg.classList.toggle('zoomed',view.z>1);svg.style.touchAction=view.z>1?'none':'auto';}
+function zoomBy(f){view.z=Math.max(1,Math.min(4.5,view.z*f));setVB();}
+$('zin').addEventListener('click',()=>zoomBy(1.4));$('zout').addEventListener('click',()=>zoomBy(1/1.4));
+$('zreset').addEventListener('click',()=>{view.z=1;setVB();});
+svg.addEventListener('wheel',e=>{if(!e.ctrlKey&&!e.metaKey)return;e.preventDefault();zoomBy(e.deltaY<0?1.12:1/1.12);},{passive:false});
+
+let drag=null,moved=false;
+svg.addEventListener('pointerdown',e=>{moved=false;drag={x:e.clientX,y:e.clientY,cx:view.cx,cy:view.cy,id:e.pointerId};});
+svg.addEventListener('pointermove',e=>{
+  if(drag&&view.z>1){const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+    if(!moved&&Math.hypot(dx,dy)>4){moved=true;svg.classList.add('dragging');try{svg.setPointerCapture(drag.id);}catch(_){}}
+    if(moved){const r=svg.getBoundingClientRect(),w=VB.w/view.z,h=VB.h/view.z,k=Math.max(w/r.width,h/r.height);
+      view.cx=drag.cx-dx*k;view.cy=drag.cy-dy*k;setVB();tip.classList.remove('on');return;}}
+  if(e.pointerType==='touch')return;
+  const c=e.target.closest&&e.target.closest('.cmp');
+  if(c&&INFO[c.dataset.id]){const r=stage.getBoundingClientRect();tip.textContent=INFO[c.dataset.id].t;tip.style.left=(e.clientX-r.left)+'px';tip.style.top=(e.clientY-r.top)+'px';tip.classList.add('on');}
+  else tip.classList.remove('on');});
+const endDrag=()=>{drag=null;svg.classList.remove('dragging');};
+svg.addEventListener('pointerup',endDrag);svg.addEventListener('pointercancel',endDrag);
+svg.addEventListener('pointerleave',()=>tip.classList.remove('on'));
+svg.addEventListener('click',e=>{if(moved){moved=false;return;}const c=e.target.closest('.cmp');select(c?c.dataset.id:'overview');});
+
+/* ---------- animation loop ---------- */
+const COOL=[89,199,255],WARM=[255,178,46],HOT=[255,74,42];
+const OILC=[255,178,46],OILH=[255,96,40];
+function heatCol(t){return t<.5?mix(COOL,WARM,t*2):mix(WARM,HOT,(t-.5)*2);}
+function updBlades(i){const a=ang[i]*Math.PI/180;
+  R.blades[i].forEach(b=>{const h=b.hinge,tip=[h[0],h[1]+b.len*Math.sin(a),h[2]+b.len*Math.cos(a)];
+    const s=ps([h,tip]);b.o.setAttribute('points',s);b.b.setAttribute('points',s);b.f.setAttribute('points',ps([tip,h]));});}
+function updNeedle(i){const n=R.needle[i],c=n.dataset.c.split(',').map(Number);const T=Math.max(0,Math.min(120,st.temp[i]));
+  const a=(225-270*T/120)*Math.PI/180;n.setAttribute('points',ps([[c[0]-.08*Math.cos(a),c[1],c[2]-.08*Math.sin(a)],[c[0]+.4*Math.cos(a),c[1],c[2]+.4*Math.sin(a)]]));}
+function updLevel(i){const p=R.level[i],x=+p.dataset.x,l=lvlOf(st.temp[i])/100;
+  p.setAttribute('points',ps([[x+.01,4.85,4.58],[x+.01,5.07,4.58],[x+.01,5.07,4.58+.54*l],[x+.01,4.85,4.58+.54*l]]));}
+function updParticles(i,dt){const pth=R.path[i],d=Math.max(0,st.temp[i]-AMB);const v=.015+.11*Math.min(1.4,d/55);
+  for(const p of R.parts[i]){p.u=(p.u+v*dt)%1;let s=p.u*pth.tot,sg=pth.seg[0];
+    for(const g of pth.seg){if(s>=g.s&&s<=g.s+g.l){sg=g;break;}}
+    const t=Math.min(1,Math.max(0,(s-sg.s)/sg.l));
+    let x=sg.a[0]+(sg.b[0]-sg.a[0])*t,z=sg.a[2]+(sg.b[2]-sg.a[2])*t,h=sg.a[3]+(sg.b[3]-sg.a[3])*t;
+    x=pth.mid+p.side*(x-pth.mid);const q=P(x,6.4+p.yo,z);
+    p.c.setAttribute('cx',r1(q[0]));p.c.setAttribute('cy',r1(q[1]));
+    const heat=Math.min(1,h*(.35+.65*Math.min(1,d/50)));p.c.setAttribute('fill',rgb(heatCol(heat)));}}
+let last=performance.now(),acc=0;
+function tick(now){const dt=Math.min(.1,(now-last)/1000);last=now;
+  for(let i=0;i<2;i++){const tgt=st.sw[i]?0:68;if(Math.abs(tgt-ang[i])>.05){ang[i]+=(tgt-ang[i])*Math.min(1,dt*10);updBlades(i);}}
+  for(let i=0;i<2;i++){const L2=enT(i)?st.load:0,target=AMB+(enT(i)?2:0)+55*L2*L2;st.temp[i]+=(target-st.temp[i])*Math.min(1,dt/6);
+    if(st.temp[i]>=90&&!st.alarm[i]&&enT(i)){st.alarm[i]=true;logEv(`Alarme: óleo do T${i+1} atingiu 90 °C.`,'warn');}
+    if(st.temp[i]<86)st.alarm[i]=false;
+    if(st.temp[i]>=105&&enT(i)){st.brk=false;st.trip='26 T'+(i+1);spark(15,3.9,3.4);
+      logEv(`O termômetro do T${i+1} chegou a 105 °C e o relé abriu o disjuntor geral (função 26). Toda a cabine ficou sem tensão.`,'err');applyState();}}
+  if(svg.classList.contains('xray'))for(let i=0;i<2;i++)updParticles(i,dt);
+  acc+=dt;if(acc>.15){acc=0;hud();}
+  requestAnimationFrame(tick);}
+function hud(){let I=0;
+  for(let i=0;i<2;i++){const T=st.temp[i],on=enT(i);I+=curr(i);
+    const isTrip=T>=105,isAlarm=T>=90&&!isTrip;
+    $('mt'+i).textContent=fmt(T)+' °C';$('mt'+i).className=isTrip?'trip':isAlarm?'alarm':'';
+    $('mt'+i).closest('.mrow div').className=isTrip?'trip-cell':isAlarm?'alarm-cell':'';
+    $('ml'+i).textContent=fmt(lvlOf(T))+'%';$('mc'+i).textContent=on?fmt(st.load*100)+'%':'0%';
+    $('mf'+i).style.width=Math.max(2,Math.min(100,(T-20)))+'%';
+    const s=$('ms'+i);
+    if(!on&&!st.fuse[i]){s.textContent='Fusível queimado';s.className='state trip-st';}
+    else if(isTrip){s.textContent='TRIP térmico';s.className='state trip-st';}
+    else if(isAlarm){s.textContent='⚠ Alarme';s.className='state alarm-st';}
+    else if(on){s.textContent='Energizado';s.className='state on';}
+    else{s.textContent='Desligado';s.className='state';}
+    updNeedle(i);updLevel(i);
+    const h=Math.max(0,Math.min(1,(T-AMB)/80)),c=rgb(mix(OILC,OILH,h));R.oilF[i].forEach(p=>p.setAttribute('fill',c));}
+  $('mI').textContent=fmt(I,1)+' A';
+  R.relay1.textContent='I '+fmt(I,1)+' A';
+  R.relay2.textContent=st.brk?'52 FECHADO':st.trip?'TRIP '+st.trip:'52 ABERTO';
+  R.led[0].setAttribute('opacity',1);
+  const anyAlarm=st.temp.some(t=>t>=90),anyTrip=!!st.trip;
+  R.led[1].setAttribute('opacity',anyAlarm?1:.18);R.led[1].classList.toggle('blink',anyAlarm);
+  R.led[2].setAttribute('opacity',(anyTrip&&!st.brk)?1:.18);
+  // ── status badge ──
+  const ss=$('sysStatus'),sd=$('sysDot'),sl=$('sysLabel'),sb=$('sysSub'),sp=$('sidePanel');
+  if(anyTrip&&!st.brk){ss.className='sys-status alarm';sd.style.setProperty('--c','var(--closed)');sl.textContent='TRIP — disjuntor aberto';sb.textContent=st.trip||'';}
+  else if(anyAlarm){ss.className='sys-status alarm';sd.style.setProperty('--c','var(--safety)');sl.textContent='Alarme térmico ativo';sb.textContent='≥ 90 °C';}
+  else if(!st.brk&&!st.trip){ss.className='sys-status';sd.style.setProperty('--c','var(--dim)');sl.textContent='Disjuntor aberto';sb.textContent='sem tensão';}
+  else if(!enT(0)&&!enT(1)){ss.className='sys-status';sd.style.setProperty('--c','var(--dim)');sl.textContent='Transformadores desligados';sb.textContent='';}
+  else{ss.className='sys-status ok';sd.style.setProperty('--c','var(--open)');sl.textContent='Operação normal';sb.textContent='13,8 kV';}
+  sp.classList.toggle('in-alarm',anyTrip||anyAlarm);
+  renderLive();}
+
+/* ---------- init ---------- */
+updBlades(0);updBlades(1);setLoad(75);applyState();hud();select('overview');setVB();
+logEv('Cabine em operação normal: disjuntor geral e chaves fechados.','ok');
+requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
